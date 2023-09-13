@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Diagnostics;
 using Newtonsoft.Json;
 using Seq.Forwarder.Cryptography;
+using Serilog.Events;
 
 // ReSharper disable UnusedMember.Global, AutoPropertyCanBeMadeGetOnly.Global
 
@@ -24,6 +26,8 @@ namespace Seq.Forwarder.Config
         public string ServerUrl { get; set; } = "http://localhost:5341";
         public ulong EventBodyLimitBytes { get; set; } = 256 * 1024;
         public ulong RawPayloadLimitBytes { get; set; } = 10 * 1024 * 1024;
+
+        public string MinimumLevel { get; set; } = "Error";
 
         const string ProtectedDataPrefix = "pd.";
 
@@ -50,5 +54,19 @@ namespace Seq.Forwarder.Config
 
             ApiKey = $"{ProtectedDataPrefix}{dataProtector.Protect(apiKey)}";
         }
+
+        private LogEventLevel? _minimumLevel;
+
+        public LogEventLevel GetMinimumLevel() => _minimumLevel ??= (
+            string.Equals(MinimumLevel, "off", System.StringComparison.OrdinalIgnoreCase) ? (LogEventLevel)(LevelAlias.Maximum + 1) :
+            string.Equals(MinimumLevel, "minimum", System.StringComparison.OrdinalIgnoreCase) ? LevelAlias.Minimum :
+            string.Equals(MinimumLevel, "maximum", System.StringComparison.OrdinalIgnoreCase) ? LevelAlias.Maximum :
+            string.Equals(MinimumLevel, "verbose", System.StringComparison.OrdinalIgnoreCase) ? LogEventLevel.Verbose :
+            string.Equals(MinimumLevel, "debug", System.StringComparison.OrdinalIgnoreCase) ? LogEventLevel.Debug :
+            string.Equals(MinimumLevel, "information", System.StringComparison.OrdinalIgnoreCase) ? LogEventLevel.Information :
+            string.Equals(MinimumLevel, "warning", System.StringComparison.OrdinalIgnoreCase) ? LogEventLevel.Warning :
+            string.Equals(MinimumLevel, "error", System.StringComparison.OrdinalIgnoreCase) ? LogEventLevel.Error :
+            string.Equals(MinimumLevel, "fatal", System.StringComparison.OrdinalIgnoreCase) ? LogEventLevel.Fatal :
+            LogEventLevel.Information);
     }
 }
