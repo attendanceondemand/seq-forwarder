@@ -59,7 +59,9 @@ function Publish-Archives($version)
 
 Push-Location $PSScriptRoot
 
-$version = @{ $true = $env:APPVEYOR_BUILD_VERSION; $false = "99.99.99" }[$env:APPVEYOR_BUILD_VERSION -ne $NULL];
+$version = & nbgv.exe get-version -v Version
+
+#$version = @{ $true = $env:APPVEYOR_BUILD_VERSION; $false = "99.99.99" }[$env:APPVEYOR_BUILD_VERSION -ne $NULL];
 Write-Output "Building version $version"
 
 Clean-Output
