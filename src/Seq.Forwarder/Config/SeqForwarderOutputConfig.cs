@@ -13,7 +13,6 @@
 // limitations under the License.
 
 using System;
-using System.Diagnostics;
 using Newtonsoft.Json;
 using Seq.Forwarder.Cryptography;
 using Serilog.Events;
