@@ -24,6 +24,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Net.Http.Headers;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Serilog.Events;
 using Seq.Forwarder.Config;
 using Seq.Forwarder.Diagnostics;
 using Seq.Forwarder.Multiplexing;
@@ -36,6 +37,7 @@ namespace Seq.Forwarder.Web.Api
     {
         static readonly Encoding Encoding = new UTF8Encoding(false);
         const string ClefMediaType = "application/vnd.serilog.clef";
+        const string EventLevels = "vdiwef";
 
         readonly ActiveLogBufferMap _logBufferMap;
         readonly SeqForwarderOutputConfig _outputConfig;
@@ -105,7 +107,7 @@ namespace Seq.Forwarder.Web.Api
                 throw new RequestProcessingException("Invalid raw event JSON, the 'Events' property must be an array.");
             }
 
-            var encoded = EncodeRawEvents(events);
+            var encoded = EncodeRawEvents(events, true);
             return Enqueue(encoded);
         }
 
@@ -139,23 +141,28 @@ namespace Seq.Forwarder.Web.Api
                         throw new RequestProcessingException(err);
                     }
 
-                    rawFormat.Add(evt);
+                    if (GetEventLevel(evt["@Level"]) >= _outputConfig.GetMinimumLevel())
+                        rawFormat.Add(evt);
                 }
 
                 line = await reader.ReadLineAsync();
                 ++lineNumber;
             }
 
-            var encoded = EncodeRawEvents(rawFormat);
+            var encoded = EncodeRawEvents(rawFormat, false);
             return Enqueue(encoded);
         }
 
-        byte[][] EncodeRawEvents(ICollection<JToken> events)
+        byte[][] EncodeRawEvents(ICollection<JToken> events, bool filterByLevel)
         {
             var encoded = new byte[events.Count][];
             var i = 0;
             foreach (var e in events)
             {
+                if ((filterByLevel) &&
+                    (GetEventLevel(e["@Level"]) < _outputConfig.GetMinimumLevel()))
+                    continue;
+
                 var s = e.ToString(Formatting.None);
                 var payload = Encoding.UTF8.GetBytes(s);
 
@@ -242,6 +249,20 @@ namespace Seq.Forwarder.Web.Api
             }
 
             return "true".Equals(value, StringComparison.OrdinalIgnoreCase) || value == "" || value == queryParameterName;
+        }
+
+        LogEventLevel GetEventLevel ( JToken? eventToken )
+        {
+            if ((eventToken == null) || (eventToken.Type != JTokenType.String))
+                return LogEventLevel.Information;
+
+            var eventLevel = eventToken.Value<string>();
+            if ((eventLevel == null) || (eventLevel.Length < 1))
+                return LogEventLevel.Information;
+
+            var numericLevel = EventLevels.IndexOf((char)(eventLevel[0] & ~32));
+
+            return (numericLevel >= 0) ? (LogEventLevel)numericLevel : LogEventLevel.Information;
         }
     }
 }
